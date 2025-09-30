@@ -7,12 +7,14 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test-proxy": "node --experimental-fetch scripts/test-proxy.mjs"
   },
   "dependencies": {
     "esbuild": "0.25.9",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "node-fetch": "^3.4.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
