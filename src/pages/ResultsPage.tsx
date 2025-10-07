@@ -15,6 +15,8 @@ type Professor = {
   average_rating?: number | null
 }
 
+import ProfessorCard from '../components/ProfessorCard'
+
 function useQuery() {
   return new URLSearchParams(useLocation().search)
 }
@@ -74,17 +76,43 @@ export default function ResultsPage() {
 
             try {
                 const payload = final.data
-                let list: Professor[] = []
+                // Normalize various shapes returned by PlanetTerp (search vs single professor)
+                const rawList: any[] = Array.isArray(payload)
+                    ? payload
+                    : Array.isArray(payload?.data)
+                    ? payload.data
+                    : payload && (payload.type === 'professor' || payload.name)
+                    ? [payload]
+                    : []
 
-                if (Array.isArray(payload)) {
-                    list = payload
-                } else if (Array.isArray(payload?.data)) {
-                    list = payload.data
-                } else if (payload && (payload.type === 'professor' || payload.name)) {
-                    list = [payload]
-                } else {
-                    list = []
+                function normalizeItem(item: any): Professor | null {
+                    if (!item) return null
+
+                    // unwrap nested containers
+                    if (item.professor) item = item.professor
+                    if (item.data && (item.data.type || item.data.attributes)) item = item.data
+                    if (item.attributes) item = { ...item.attributes, id: item.id ?? item.attributes.id }
+
+                    const avg = item.average_rating ?? item.averageRating ?? item.avg_rating ?? item.rating ?? null
+                    const courses = item.courses ?? item.course_list ?? item.courses_list ?? null
+                    const dept = item.department ?? item.department_name ?? (item.department?.name) ?? null
+
+                    const prof: Professor = {
+                        id: item.id ?? undefined,
+                        first_name: item.first_name ?? item.firstName ?? undefined,
+                        last_name: item.last_name ?? item.lastName ?? undefined,
+                        full_name: item.full_name ?? item.fullName ?? item.name ?? undefined,
+                        department: dept ?? undefined,
+                        name: item.name ?? undefined,
+                        slug: item.slug ?? item.slugName ?? undefined,
+                        courses: Array.isArray(courses) ? courses : typeof courses === 'string' ? [courses] : undefined,
+                        average_rating: avg as number | null,
+                    }
+
+                    return prof
                 }
+
+                const list = rawList.map(normalizeItem).filter((x): x is Professor => x != null)
 
                 if (!cancelled) setProfs(list)
             } catch (parseErr: any) {
@@ -174,24 +202,11 @@ export default function ResultsPage() {
                             <p>No professors found{ name ? ` matching "${name}"` : '' }.</p>
                         )}
 
-                        <ul className="grid grid-cols-1 gap-0">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             {filtered.map((p) => (
-                                <li key={p.id ?? `${p.first_name}-${p.last_name}`} className="p-4 border-b border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className="text-lg font-semibold text-black">{p.full_name ?? p.name ?? `${p.first_name ?? ''} ${p.last_name ?? ''}`}</div>
-                                            {p.department && <div className="text-sm text-gray-500">{p.department}</div>}
-                                            {p.courses && p.courses.length > 0 && (
-                                                <div className="mt-2 text-sm text-gray-700">Courses: {p.courses.join(', ')}</div>
-                                            )}
-                                            {p.average_rating !== undefined && (
-                                                <div className="mt-1 text-sm text-gray-600">Average rating: {p.average_rating ?? 'N/A'}</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </li>
+                                <ProfessorCard key={p.id ?? `${p.first_name}-${p.last_name}`} prof={p} />
                             ))}
-                        </ul>
+                        </div>
                 </div>
             </div>
 
